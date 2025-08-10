@@ -77,13 +77,13 @@ const LearnerSubmissions = [
 ];
 
 function getLearnerData(CourseInfo, AssignmentGroup, LearnerSubmissions) {
-    
+    // Step 1 
     const learnerIds = [];
 
     for (let i = 0; i < LearnerSubmissions.length; i++) {
         const currentId = LearnerSubmissions[i].learner_id;
-
         let found = false;
+
         for (let j = 0; j < learnerIds.length; j++) {
             if (learnerIds[j] === currentId) {
                 found = true;
@@ -96,10 +96,27 @@ function getLearnerData(CourseInfo, AssignmentGroup, LearnerSubmissions) {
         }
     }
 
-    return learnerIds; 
+    return learnerIds;
 }
 
+// Step 2 
+if (AssignmentGroup.course_id !== CourseInfo.id) {
+    throw new Error("The assignment group does not belong to this course.");
+}
+
+for (let i = 0; i < LearnerSubmissions.length; i++) {
+    const submission = LearnerSubmissions[i];
+    let assignmentInfo = null;
+
+    for (let a = 0; a < AssignmentGroup.assignments.length; a++) {
+        if (AssignmentGroup.assignments[a].id === submission.assignment_id) {
+            assignmentInfo = AssignmentGroup.assignments[a];
+            break;
+        }
+    }
+
+    console.log("Assignment info for learner", submission.learner_id, assignmentInfo);
+}
 
 const result = getLearnerData(CourseInfo, AssignmentGroup, LearnerSubmissions);
 console.log("Unique Learner IDs:", result);
-
