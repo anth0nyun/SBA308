@@ -77,46 +77,80 @@ const LearnerSubmissions = [
 ];
 
 function getLearnerData(CourseInfo, AssignmentGroup, LearnerSubmissions) {
-    // Step 1 
-    const learnerIds = [];
+   
+    if (AssignmentGroup.course_id !== CourseInfo.id) {
+        throw new Error("AssignmentGroup does not belong to this course.");
+    }
 
-    for (let i = 0; i < LearnerSubmissions.length; i++) {
-        const currentId = LearnerSubmissions[i].learner_id;
-        let found = false;
+    var results = [];
+    var now = new Date();
 
-        for (let j = 0; j < learnerIds.length; j++) {
-            if (learnerIds[j] === currentId) {
-                found = true;
+    
+    for (var i = 0; i < LearnerSubmissions.length; i++) {
+        var sub = LearnerSubmissions[i];
+
+        // Find or create the learner's row in results
+        var row = null;
+        for (var r = 0; r < results.length; r++) {
+            if (results[r].id === sub.learner_id) {
+                row = results[r];
                 break;
             }
         }
-
-        if (!found) {
-            learnerIds.push(currentId);
+        if (row === null) {
+            row = { id: sub.learner_id, avg: 0, totalEarned: 0, totalPossible: 0 };
+            results.push(row);
         }
+
+        // Find the matching assignment details
+        var a = null;
+        for (var j = 0; j < AssignmentGroup.assignments.length; j++) {
+            if (AssignmentGroup.assignments[j].id === sub.assignment_id) {
+                a = AssignmentGroup.assignments[j];
+                break;
+            }
+        }
+        if (!a) continue;
+
+        // Skip assignments that are not due yet
+        var dueDate = new Date(a.due_at);
+        if (dueDate > now) continue;
+
+        // Get points and score; skip bad data
+        var pointsPossible = a.points_possible;
+        if (typeof pointsPossible !== "number" || pointsPossible <= 0) continue;
+
+        if (!sub.submission) continue;
+        var score = sub.submission.score;
+        if (typeof score !== "number") continue;
+
+        // Apply late penalty: minus 10% of pointsPossible if submitted after due date
+        var submittedAt = new Date(sub.submission.submitted_at);
+        if (submittedAt > dueDate) {
+            score = score - (pointsPossible * 0.10);
+            if (score < 0) score = 0;
+        }
+
+        // Save this assignment's percentage and update totals
+        row[a.id] = score / pointsPossible; 
+        row.totalEarned += score;
+        row.totalPossible += pointsPossible;
     }
 
-    return learnerIds;
-}
-
-// Step 2 
-if (AssignmentGroup.course_id !== CourseInfo.id) {
-    throw new Error("The assignment group does not belong to this course.");
-}
-
-for (let i = 0; i < LearnerSubmissions.length; i++) {
-    const submission = LearnerSubmissions[i];
-    let assignmentInfo = null;
-
-    for (let a = 0; a < AssignmentGroup.assignments.length; a++) {
-        if (AssignmentGroup.assignments[a].id === submission.assignment_id) {
-            assignmentInfo = AssignmentGroup.assignments[a];
-            break;
+    // Averages for each learner
+    for (var k = 0; k < results.length; k++) {
+        var learner = results[k];
+        if (learner.totalPossible > 0) {
+            learner.avg = learner.totalEarned / learner.totalPossible;
+        } else {
+            learner.avg = 0;
         }
+        delete learner.totalEarned;
+        delete learner.totalPossible;
     }
 
-    console.log("Assignment info for learner", submission.learner_id, assignmentInfo);
+    return results;
 }
 
 const result = getLearnerData(CourseInfo, AssignmentGroup, LearnerSubmissions);
-console.log("Unique Learner IDs:", result);
+console.log(result);
